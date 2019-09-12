@@ -10,32 +10,38 @@ class Transformer
     private static $knownModels = [];
     private static $transformer = [];
     private static $model = '';
-    function __construct($transformer, $model){
+    private static $migratePath;
+    function __construct($transformer, $model, $migratePath = false){
         self::$transformer = $transformer;
         self::$model = $model;
+        self::$migratePath = $migratePath;
     }
 
+    /**
+     * @param $model
+     *
+     * @return array
+     * @throws Exception
+     */
     private static function getStructure($model){
         if(isset(self::$knownModels[$model])){
             return self::$knownModels;
         }
-        try {
-            return IndexModel::getMigrateStructure($model);
-        } catch (Exception $e){
-            return false;
-        }
+        return IndexModel::getMigrateStructure($model, self::$migratePath);
     }
+
+
 
     /**
      * @param $id
      *
      * @return array|mixed
      * @throws DbException
+     * @throws Exception
      */
     static function get($id){
-        $id = $id[0];
-
         $structure = self::getStructure(self::$model);
+
         $transformer = self::$transformer::modelStructure();
         // transformer-translations?
         $translatedTransformer = [];
@@ -117,13 +123,21 @@ class Transformer
         }
         return $entity;
     }
+
+    /**
+     * @param $obj
+     *
+     * @return array
+     * @throws DbException
+     */
     static function create($obj)
     {
         $transform = IndexModel::validateAgainstTransformer($obj,self::$transformer::modelStructure());
         $toDb = IndexModel::flatten(self::$model,$transform);
-        /*foreach ($toDb as $table => $values){
-            Db::$table($values);
-        }*/
-        var_dump($toDb);
+        foreach ($toDb as $table => $values){
+            Db::ask($table,$values);
+
+        }
+        return $toDb;
     }
 }

@@ -1,8 +1,22 @@
 <?php
+
+use Neoan3\Apps\Db;
+
+require_once '../vendor/autoload.php';
+
 class MockTransformer
 {
+    private static function checkUnique($input,$all){
+        $e = Db::easy('user_email.id',['email'=>$all['email']['email'],'^delete_date']);
+        $u = Db::easy('user.id',['user_name'=>$all['userName']]);
+        if(empty($e) && empty($u)){
+            return $input;
+        } else {
+            throw new Exception((empty($u) ? 'Email' : 'User name'). ' not unique');
+        }
+    }
     static function modelStructure(){
-        $mainId = 'asdfkja982734siefndj';
+        $mainId = Db::uuid()->uuid;
         return [
             'id' => [
                 'on_creation' => function($input) use ($mainId){
@@ -12,7 +26,8 @@ class MockTransformer
             ],
             'inserted'=>[
                 'translate' => 'insert_date',
-                'on_read' => function($input){ return '#user.'.$input;}
+                'on_read' => function($input){ return '#user.'.$input;},
+                'on_creation' => function($input,$all){return self::checkUnique($input, $all);}
             ],
             'userName'=>[
                 'required'=>true,
