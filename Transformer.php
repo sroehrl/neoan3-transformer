@@ -11,10 +11,34 @@ class Transformer
     private static $transformer = [];
     private static $model = '';
     private static $migratePath;
-    function __construct($transformer, $model, $migratePath = false){
+    private static $assumesUuid;
+    function __construct($transformer, $model, $migratePath = false, $assumesUuid = true){
         self::$transformer = $transformer;
         self::$model = $model;
         self::$migratePath = $migratePath;
+        self::$assumesUuid = $assumesUuid;
+    }
+    static function __callStatic($name, $arguments)
+    {
+        $givenId = isset($arguments[1]) ? $arguments[1] : false;
+        if(method_exists(self::class,$name)){
+            return call_user_func_array([self::class,$name],$arguments);
+        } else {
+            $parts =  preg_split('/([A-Z])/',$name,-1, PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE);
+            // does base-method exist?
+            if(!method_exists(self::class,$parts[0])){
+                throw new Exception('Magic method must start with either "get", "create", "update" or "delete"');
+            }
+            $function = $parts[0];
+            $subModel = '';
+            for($i=1;$i<count($parts);$i++){
+                $subModel .= $parts[$i];
+            }
+            $subModel = lcfirst($subModel);
+            $arguments[0] = [$subModel => $arguments[0]];
+
+            return self::$function($arguments[0], $givenId, $subModel);
+        }
     }
 
     /**
@@ -125,19 +149,94 @@ class Transformer
     }
 
     /**
-     * @param $obj
+     * @param      $obj
+     *
+     * @param bool $subModel
+     *
+     * @param bool $givenId
      *
      * @return array
      * @throws DbException
      */
-    static function create($obj)
+    static function create($obj, $givenId = false, $subModel = false)
     {
-        $transform = IndexModel::validateAgainstTransformer($obj,self::$transformer::modelStructure());
-        $toDb = IndexModel::flatten(self::$model,$transform);
+        $toDb = self::prepareForTransaction($obj,$givenId,$subModel);
+
         foreach ($toDb as $table => $values){
             Db::ask($table,$values);
 
         }
+        if(isset($toDb[self::$model]['id']) || $givenId){
+            $id = $givenId ? $givenId : $toDb[self::$model]['id'];
+            return self::get(self::sanitizeId($id));
+        }
         return $toDb;
+    }
+
+    static function update($obj, $givenId, $subModel = false){
+        $existingEntity = self::find(['id'=>$givenId],false, $subModel);
+        if(empty($existingEntity)){
+            throw new Exception('Cannot find entity to update');
+        }
+        $merged = $existingEntity[0];
+        if(!$subModel){
+            foreach ($obj as $key => $value){
+                if(isset($merged[$key])){
+                    $merged[$key] = $value;
+                }
+            }
+        }
+        var_dump($merged);
+        $toDb = self::prepareForTransaction($merged,$givenId,$subModel,'update');
+        var_dump($toDb);
+        die();
+    }
+
+    static function find($obj, $void = false, $subModel = false){
+        $structure = self::$transformer::modelStructure();
+        $table = self::$model;
+        $qualifier = 'id';
+        $condition = [];
+        $results = [];
+        if($subModel){
+            $qualifier = self::$model . '_id';
+            $structure = $structure[$subModel];
+            $table = isset($structure['translate']) ? $structure['translate'] : $subModel;
+        }
+        foreach ($structure as $columnOrTable => $values){
+            if(isset($obj[$columnOrTable])){
+                $prefix = (substr(strtolower($columnOrTable),-2) == 'id' && self::$assumesUuid) ? '$' : '';
+                if(isset($values['translate'])){
+                    $condition[$values['translate']] = $prefix . $obj[$columnOrTable];
+                } else {
+                    $condition[$columnOrTable] = $prefix . $obj[$columnOrTable];
+                }
+
+            }
+        }
+        $ids = Db::easy($table . '.' . $qualifier,$condition);
+        foreach ($ids as $id){
+            $results[] = self::get($id[$qualifier]);
+        }
+        return $results;
+    }
+
+    private static function prepareForTransaction($passIn, $givenId = false, $subModel = false, $crudOperation = 'create'){
+        $structure = self::$transformer::modelStructure($givenId);
+        $transform = IndexModel::validateAgainstTransformer($passIn, $structure, $crudOperation, $subModel);
+        return IndexModel::flatten(self::$model,$transform);
+    }
+
+    /**
+     * @param $idString
+     *
+     * @return string|string[]|null
+     */
+    private static function sanitizeId($idString){
+        if(is_numeric($idString)){
+            return $idString;
+        } else {
+            return preg_replace('/\$|UNHEX|\(|\)/','',$idString);
+        }
     }
 }

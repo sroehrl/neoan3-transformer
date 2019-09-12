@@ -102,12 +102,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/sroehrl/neoan3-indexModel.git",
-                "reference": "441a110e674ad0f134f8b67e6231a171c1cd627d"
+                "reference": "c156fbc9d535c2bcb24c8e1a74e373e37bfad89d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sroehrl/neoan3-indexModel/zipball/441a110e674ad0f134f8b67e6231a171c1cd627d",
-                "reference": "441a110e674ad0f134f8b67e6231a171c1cd627d",
+                "url": "https://api.github.com/repos/sroehrl/neoan3-indexModel/zipball/c156fbc9d535c2bcb24c8e1a74e373e37bfad89d",
+                "reference": "c156fbc9d535c2bcb24c8e1a74e373e37bfad89d",
                 "shasum": ""
             },
             "require": {
@@ -125,7 +125,7 @@
             "license": [
                 "MIT"
             ],
-            "time": "2019-09-11T19:35:33+00:00"
+            "time": "2019-09-12T01:33:27+00:00"
         }
     ],
     "packages-dev": [

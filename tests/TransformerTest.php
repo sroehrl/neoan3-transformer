@@ -4,6 +4,7 @@ namespace Neoan3\Apps;
 
 use Neoan3\Model\IndexModel;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Util\Exception;
 
 require '../vendor/neoan3-model/index/Index.model.php';
 require '../vendor/autoload.php';
@@ -21,20 +22,20 @@ class TransformerTest extends TestCase
     {
         parent::__construct($name, $data, $dataName);
         Db::setEnvironment(['assumes_uuid'=>true,'name'=>$this->yourDb]);
-        $user = Db::easy('user.id',['^delete_date'],['limit'=>[0,1]]);
-        if(!empty($user)){
-            $this->hitId = $user[0]['id'];
-        } else {
-            var_dump('This test requires db-connectivity and tables reflecting the mockTransformer.php structure.');
+
+        try{
+            Db::ask('>Truncate user');
+            Db::ask('>Truncate user_email');
+            Db::ask('>Truncate user_password');
+        } catch (DbException $e){
+            var_dump($e->getMessage());
             die();
         }
+
         $this->transformerInstance = new Transformer(\MockTransformer::class,'user' , __DIR__ .'/mockMigrate.json');
     }
 
-    public function test__construct()
-    {
-        var_dump(IndexModel::first(['some']));
-    }
+
     public function testCreate()
     {
 
@@ -49,18 +50,49 @@ class TransformerTest extends TestCase
         ]);
         $this->assertIsArray($result,'Failed. Db connection for test set?');
         $this->assertArrayHasKey('id',$result,'No id generated!');
-        $this->hitId = $result['id'];
+        $this->assertIsString($result['id']);
+        return $result['id'];
     }
 
-    public function testGet()
+    /**
+     *
+     * @depends testCreate
+     *
+     * @param $givenId
+     *
+     * @return String
+     * @throws DbException
+     */
+    public function testGet($givenId)
     {
-        $r = $this->transformerInstance::get($this->hitId);
+        $r = $this->transformerInstance::get($givenId);
         $this->assertIsArray($r);
+        $this->assertIsString($r['id']);
+        return $r['id'];
+    }
+
+    public function testFind(){
+        $r = $this->transformerInstance::find(['userName'=>'sam']);
+        $this->assertIsArray($r,'Could not resolve');
+        $this->assertArrayHasKey(0,$r,'Empty result');
+        $this->assertArrayHasKey('id',$r[0],'Result has wrong format');
+    }
+    public function testFindMagic(){
+        $r = $this->transformerInstance::findEmail(['email'=>'some@other.com']);
+        $this->assertIsArray($r,'Could not resolve');
+        $this->assertArrayHasKey(0,$r,'Empty result');
+        $this->assertArrayHasKey('id',$r[0],'Result has wrong format');
+    }
+    /**
+     * @depends testGet
+     *
+     * @param $givenId
+     */
+    public function testUpdate($givenId){
+
+        $r = $this->transformerInstance::update(['userName'=>'Josh'],$givenId);
+        $this->assertTrue(true);
     }
 
 
-    public function cleanUp()
-    {
-
-    }
 }

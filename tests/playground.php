@@ -11,17 +11,26 @@ require 'mockTransformer.php';
 
 // set db
 Db::setEnvironment(['assumes_uuid'=>true,'name'=>'db_app']);
+/*Db::ask('>Truncate user');
+Db::ask('>Truncate user_email');
+Db::ask('>Truncate user_password');*/
 
-$t = new Transformer(MockTransformer::class,'user');
+$t = new Transformer(MockTransformer::class,'user', __DIR__ .'/mockMigrate.json');
+
+$id = 'abcd';
+
+var_dump($t::createEmail(['email' => 'some3@sother.com'],$id));
+die();
+
 try{
     $d = Transformer::create([
         'email' => [
-            'email' => 'some@other.com'
+            'email' => 'some@sother.com'
         ],
         'password' => [
             'password' => 'foobarbaz'
         ],
-        'userName' => 'sam'
+        'userName' => 'samy'
     ]);
 } catch (Exception $e){
     var_dump($e->getMessage());
