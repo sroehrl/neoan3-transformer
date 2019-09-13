@@ -5,19 +5,44 @@ namespace Neoan3\Apps;
 use Exception;
 use Neoan3\Model\IndexModel;
 
+/**
+ * Class Transformer
+ *
+ * @package Neoan3\Apps
+ */
 class Transformer
 {
+    /**
+     * @var array
+     */
     private static $knownModels = [];
     private static $transformer = [];
-    private static $model = '';
+    private static $model       = '';
     private static $migratePath;
     private static $assumesUuid;
+
+    /**
+     * Transformer constructor.
+     *
+     * @param      $transformer
+     * @param      $model
+     * @param bool $migratePath
+     * @param bool $assumesUuid
+     */
     function __construct($transformer, $model, $migratePath = false, $assumesUuid = true){
         self::$transformer = $transformer;
         self::$model = $model;
         self::$migratePath = $migratePath;
         self::$assumesUuid = $assumesUuid;
     }
+
+    /**
+     * @param $name
+     * @param $arguments
+     *
+     * @return mixed
+     * @throws Exception
+     */
     static function __callStatic($name, $arguments)
     {
         $givenId = isset($arguments[1]) ? $arguments[1] : false;
@@ -233,10 +258,10 @@ class Transformer
         $sanitized = [];
         switch ($crudOperation){
             case 'create':
-                $sanitized = TransformValidator::validateStructureCreate($passIn,$subModel ? $structure[$subModel] : $structure);
+                $sanitized = TransformValidator::validateStructureCreate($passIn,$structure, $subModel);
                 break;
             case 'update':
-                $sanitized = TransformValidator::validateStructureUpdate($passIn,$subModel ? $structure[$subModel] : $structure);
+                $sanitized = TransformValidator::validateStructureUpdate($passIn,$structure, $subModel);
                 break;
         }
 

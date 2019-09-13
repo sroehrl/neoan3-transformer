@@ -6,8 +6,19 @@ namespace Neoan3\Apps;
 
 use Exception;
 
+/**
+ * Class TransformValidator
+ *
+ * @package Neoan3\Apps
+ */
 class TransformValidator
 {
+    /**
+     * @param $modelName
+     * @param $deepModel
+     *
+     * @return array
+     */
     static function flatten($modelName, $deepModel)
     {
         $separate = [];
@@ -21,46 +32,96 @@ class TransformValidator
         return $separate;
     }
 
-    static function validateStructureUpdate($passIn, $structure)
+    /**
+     * @param             $passIn
+     * @param             $structure
+     * @param bool|string $subModel
+     *
+     * @return mixed
+     */
+    static function validateStructureUpdate($passIn, $structure, $subModel = false)
     {
         foreach ($structure as $tableOrField => $info) {
-            if(isset($passIn[$tableOrField])){
-                if (isset($info['on_update'])) {
-                    $passIn = self::applyCallback($info,'on_update',$tableOrField,$passIn);
+            if (self::subModelCondition($subModel, $tableOrField)) {
+                if (isset($passIn[$tableOrField])) {
+                    if (isset($info['on_update'])) {
+                        $passIn = self::applyCallback($info, 'on_update', $tableOrField, $passIn);
+                    }
+                    $passIn = self::translate($info, $tableOrField, $passIn);
                 }
-                $passIn = self::translate($info, $tableOrField , $passIn);
             }
         }
         return $passIn;
     }
 
-    static function validateStructureCreate($passIn, $structure)
+    /**
+     * @param             $passIn
+     * @param             $structure
+     * @param bool|string $subModel
+     *
+     * @return mixed
+     * @throws Exception
+     */
+    static function validateStructureCreate($passIn, $structure, $subModel = false)
     {
         foreach ($structure as $tableOrField => $info) {
-            // if missing
-            if (isset($info['required']) && $info['required'] && !isset($passIn[$tableOrField])) {
-                throw new Exception('Missing: ' . $tableOrField);
+            if (self::subModelCondition($subModel, $tableOrField)) {
+                // if missing
+                if (isset($info['required']) && $info['required'] && !isset($passIn[$tableOrField])) {
+                    throw new Exception('Missing: ' . $tableOrField);
+                }
+                // deep?
+                if (isset($info['depth'])) {
+                    self::validateRequiredFields($info, $passIn[$tableOrField]);
+                }
+                if (isset($info['on_creation'])) {
+                    $passIn = self::applyCallback($info, 'on_creation', $tableOrField, $passIn);
+                }
+                // translate
+                $passIn = self::translate($info, $tableOrField, $passIn);
             }
-            // deep?
-            if (isset($info['depth'])) {
-                self::validateRequiredFields($info, $passIn[$tableOrField]);
-            }
-            if (isset($info['on_creation'])) {
-                $passIn = self::applyCallback($info,'on_creation',$tableOrField,$passIn);
-            }
-            // translate
-            $passIn = self::translate($info, $tableOrField, $passIn);
+
         }
         return $passIn;
     }
-    private static function translate($currentSub, $originalName, $passIn){
+
+    /**
+     * @param $subModel
+     * @param $column
+     *
+     * @return bool
+     */
+    private static function subModelCondition($subModel, $column)
+    {
+        return !$subModel || $subModel == $column;
+    }
+
+    /**
+     * @param $currentSub
+     * @param $originalName
+     * @param $passIn
+     *
+     * @return mixed
+     */
+    private static function translate($currentSub, $originalName, $passIn)
+    {
         if (isset($currentSub['translate']) && $currentSub['translate'] && isset($passIn[$originalName])) {
             $passIn[$currentSub['translate']] = $passIn[$originalName];
             unset($passIn[$originalName]);
         }
         return $passIn;
     }
-    private static function applyCallback($currentSub, $listener, $outerKey, $passIn){
+
+    /**
+     * @param $currentSub
+     * @param $listener
+     * @param $outerKey
+     * @param $passIn
+     *
+     * @return mixed
+     */
+    private static function applyCallback($currentSub, $listener, $outerKey, $passIn)
+    {
         $depth = isset($currentSub['depth']) ? $currentSub['depth'] : false;
         if (isset($currentSub[$listener])) {
             switch ($depth) {
@@ -80,20 +141,25 @@ class TransformValidator
                     break;
                 default:
                     $passIn[$outerKey] =
-                        $currentSub[$listener](isset($passIn[$outerKey]) ? $passIn[$outerKey] : false,
-                            $passIn);
+                        $currentSub[$listener](isset($passIn[$outerKey]) ? $passIn[$outerKey] : false, $passIn);
                     break;
             }
         }
         return $passIn;
     }
 
+    /**
+     * @param $description
+     * @param $passIn
+     *
+     * @throws Exception
+     */
     private static function validateRequiredFields($description, $passIn)
     {
         if (isset($description['required_fields'])) {
             $depth = isset($description['depth']) ? $description['depth'] : false;
             foreach ($description['required_fields'] as $field) {
-                switch($depth){
+                switch ($depth) {
                     case 'one':
                         if (!isset($passIn[$field])) {
                             throw new Exception('Missing or malformed: ' . $field);
@@ -108,7 +174,7 @@ class TransformValidator
                                 throw new Exception('Missing or malformed: ' . $field);
                             }
                         }
-                    break;
+                        break;
                 }
             }
         }
