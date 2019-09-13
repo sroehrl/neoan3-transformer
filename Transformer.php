@@ -16,7 +16,10 @@ class Transformer
      * @var array
      */
     private static $knownModels = [];
-    private static $transformer = [];
+    /**
+     * @var \MockTransformer $transformer
+     */
+    private static $transformer;
     private static $model       = '';
     private static $migratePath;
     private static $assumesUuid;
@@ -182,6 +185,7 @@ class Transformer
      *
      * @return array
      * @throws DbException
+     * @throws Exception
      */
     static function create($obj, $givenId = false, $subModel = false)
     {
@@ -204,6 +208,15 @@ class Transformer
         return $toDb;
     }
 
+    /**
+     * @param      $obj
+     * @param      $givenId
+     * @param bool $subModel
+     *
+     * @return mixed
+     * @throws DbException
+     * @throws Exception
+     */
     static function update($obj, $givenId, $subModel = false){
         $existingEntity = self::find(['id'=>$givenId],false, $subModel);
         if(empty($existingEntity)){
@@ -224,7 +237,19 @@ class Transformer
         return $merged;
     }
 
+    /**
+     * @param      $obj
+     * @param bool $void
+     * @param bool $subModel
+     *
+     * @return array
+     * @throws DbException
+     * @throws Exception
+     */
     static function find($obj, $void = false, $subModel = false){
+        if($void){
+            throw new Exception('Malformed magic handling?');
+        }
         $structure = self::$transformer::modelStructure();
         $table = self::$model;
         $qualifier = 'id';
@@ -253,6 +278,15 @@ class Transformer
         return $results;
     }
 
+    /**
+     * @param        $passIn
+     * @param bool   $givenId
+     * @param bool   $subModel
+     * @param string $crudOperation
+     *
+     * @return array
+     * @throws Exception
+     */
     private static function prepareForTransaction($passIn, $givenId = false, $subModel = false, $crudOperation = 'create'){
         $structure = self::$transformer::modelStructure($givenId);
         $sanitized = [];
