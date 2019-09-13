@@ -1,14 +1,26 @@
 <?php
 
 use Neoan3\Apps\Db;
+use Neoan3\Apps\DbException;
 use Neoan3\Model\IndexTransformer as IndexTransformerAlias;
 
 require_once '../vendor/neoan3-model/index/Index.transformer.php';
 require_once '../vendor/autoload.php';
 
+/**
+ * Class MockTransformer
+ */
 class MockTransformer implements IndexTransformerAlias
 {
 
+    /**
+     * @param $input
+     * @param $all
+     *
+     * @return mixed
+     * @throws DbException
+     * @throws Exception
+     */
     private static function checkUniqueUserName($input, $all){
         $u = isset($all['userName']) ? Db::easy('user.id',['user_name'=>$all['userName']]) : [];
         if(empty($u)){
@@ -17,6 +29,15 @@ class MockTransformer implements IndexTransformerAlias
             throw new Exception('userName not unique');
         }
     }
+
+    /**
+     * @param $input
+     * @param $all
+     *
+     * @return mixed
+     * @throws DbException
+     * @throws Exception
+     */
     private static function checkUniqueEmail($input, $all){
         $e = isset($all['email']['email']) ? Db::easy('user_email.id',['email'=>$all['email']['email'],'^delete_date']) : [];
         if(empty($e)){
@@ -25,6 +46,13 @@ class MockTransformer implements IndexTransformerAlias
             throw new Exception( 'Email not unique');
         }
     }
+
+    /**
+     * @param bool $additionalInput
+     *
+     * @return array
+     * @throws DbException
+     */
     static function modelStructure($additionalInput = false){
         $mainId = $additionalInput ? $additionalInput : Db::uuid()->uuid;
         return [
