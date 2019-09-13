@@ -184,6 +184,10 @@ class Transformer
         if(empty($existingEntity)){
             throw new Exception('Cannot find entity to update');
         }
+        $toDb = self::prepareForTransaction($obj,$givenId,$subModel,'update');
+        foreach ($toDb as $table => $values){
+            Db::ask($table, $values,['id'=> ( self::$assumesUuid ? '$' : '') . $givenId]);
+        }
         $merged = $existingEntity[0];
         if(!$subModel){
             foreach ($obj as $key => $value){
@@ -192,10 +196,7 @@ class Transformer
                 }
             }
         }
-        var_dump($merged);
-        $toDb = self::prepareForTransaction($merged,$givenId,$subModel,'update');
-        var_dump($toDb);
-        die();
+        return $merged;
     }
 
     static function find($obj, $void = false, $subModel = false){
