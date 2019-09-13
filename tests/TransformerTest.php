@@ -2,7 +2,6 @@
 
 namespace Neoan3\Apps;
 
-use Neoan3\Model\IndexModel;
 use PHPUnit\Framework\TestCase;
 use Exception;
 

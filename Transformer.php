@@ -190,17 +190,7 @@ class Transformer
     static function create($obj, $givenId = false, $subModel = false)
     {
         $toDb = self::prepareForTransaction($obj,$givenId,$subModel);
-
-        foreach ($toDb as $table => $values){
-            reset($values);
-            if(key($values) === 0){
-                foreach ($values as $valueSet){
-                    Db::ask($table,$valueSet);
-                }
-            } else {
-                Db::ask($table,$values);
-            }
-        }
+        self::executeTransactions($toDb);
         if(isset($toDb[self::$model]['id']) || $givenId){
             $id = $givenId ? $givenId : $toDb[self::$model]['id'];
             return self::get(self::sanitizeId($id));
@@ -218,23 +208,26 @@ class Transformer
      * @throws Exception
      */
     static function update($obj, $givenId, $subModel = false){
-        $existingEntity = self::find(['id'=>$givenId],false, $subModel);
+        $existingEntity = IndexModel::first(self::find(['id'=>$givenId],false, $subModel));
         if(empty($existingEntity)){
             throw new Exception('Cannot find entity to update');
         }
         $toDb = self::prepareForTransaction($obj,$givenId,$subModel,'update');
-        foreach ($toDb as $table => $values){
-            Db::ask($table, $values,['id'=> ( self::$assumesUuid ? '$' : '') . $givenId]);
-        }
-        $merged = $existingEntity[0];
+        self::executeTransactions($toDb,['id'=> ( self::$assumesUuid ? '$' : '') . $givenId]);
         if(!$subModel){
             foreach ($obj as $key => $value){
-                if(isset($merged[$key])){
-                    $merged[$key] = $value;
+                if(isset($existingEntity[$key])){
+                    $existingEntity[$key] = $value;
+                }
+            }
+        } else {
+            foreach ($obj as $key => $value){
+                if(isset($existingEntity[$subModel][$key])){
+                    $existingEntity[$subModel][$key] = $value;
                 }
             }
         }
-        return $merged;
+        return $existingEntity;
     }
 
     /**
@@ -277,6 +270,9 @@ class Transformer
         }
         return $results;
     }
+    static function delete($obj, $givenId, $subModel = false){
+
+    }
 
     /**
      * @param        $passIn
@@ -300,6 +296,26 @@ class Transformer
         }
 
         return TransformValidator::flatten(self::$model,$sanitized);
+    }
+
+    /**
+     * @param       $preparedTransactions
+     *
+     * @param null|array $updateCondition
+     *
+     * @throws DbException
+     */
+    private static function executeTransactions($preparedTransactions, $updateCondition = null){
+        foreach ($preparedTransactions as $table => $values){
+            reset($values);
+            if(key($values) === 0){
+                foreach ($values as $valueSet){
+                    Db::ask($table,$valueSet, $updateCondition);
+                }
+            } else {
+                Db::ask($table,$values, $updateCondition);
+            }
+        }
     }
 
     /**
