@@ -8,6 +8,7 @@ use PHPUnit\Util\Exception;
 
 require '../vendor/neoan3-model/index/Index.model.php';
 require '../vendor/autoload.php';
+require '../TransformValidator.php';
 require '../Transformer.php';
 require 'mockTransformer.php';
 

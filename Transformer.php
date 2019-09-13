@@ -163,8 +163,14 @@ class Transformer
         $toDb = self::prepareForTransaction($obj,$givenId,$subModel);
 
         foreach ($toDb as $table => $values){
-            Db::ask($table,$values);
-
+            reset($values);
+            if(key($values) === 0){
+                foreach ($values as $valueSet){
+                    Db::ask($table,$valueSet);
+                }
+            } else {
+                Db::ask($table,$values);
+            }
         }
         if(isset($toDb[self::$model]['id']) || $givenId){
             $id = $givenId ? $givenId : $toDb[self::$model]['id'];
@@ -223,8 +229,17 @@ class Transformer
 
     private static function prepareForTransaction($passIn, $givenId = false, $subModel = false, $crudOperation = 'create'){
         $structure = self::$transformer::modelStructure($givenId);
-        $transform = IndexModel::validateAgainstTransformer($passIn, $structure, $crudOperation, $subModel);
-        return IndexModel::flatten(self::$model,$transform);
+        $sanitized = [];
+        switch ($crudOperation){
+            case 'create':
+                $sanitized = TransformValidator::validateStructureCreate($passIn,$subModel ? $structure[$subModel] : $structure);
+                break;
+            case 'update':
+                $sanitized = TransformValidator::validateStructureUpdate($passIn,$subModel ? $structure[$subModel] : $structure);
+                break;
+        }
+
+        return TransformValidator::flatten(self::$model,$sanitized);
     }
 
     /**
