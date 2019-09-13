@@ -20,7 +20,7 @@ class Transformer
      * @var \MockTransformer $transformer
      */
     private static $transformer;
-    private static $model       = '';
+    private static $model = '';
     private static $migratePath;
     private static $assumesUuid;
 
@@ -32,7 +32,8 @@ class Transformer
      * @param bool $migratePath
      * @param bool $assumesUuid
      */
-    function __construct($transformer, $model, $migratePath = false, $assumesUuid = true){
+    function __construct($transformer, $model, $migratePath = false, $assumesUuid = true)
+    {
         self::$transformer = $transformer;
         self::$model = $model;
         self::$migratePath = $migratePath;
@@ -49,17 +50,17 @@ class Transformer
     static function __callStatic($name, $arguments)
     {
         $givenId = isset($arguments[1]) ? $arguments[1] : false;
-        if(method_exists(self::class,$name)){
-            return call_user_func_array([self::class,$name],$arguments);
+        if (method_exists(self::class, $name)) {
+            return call_user_func_array([self::class, $name], $arguments);
         } else {
-            $parts =  preg_split('/([A-Z])/',$name,-1, PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE);
+            $parts = preg_split('/([A-Z])/', $name, -1, PREG_SPLIT_NO_EMPTY | PREG_SPLIT_DELIM_CAPTURE);
             // does base-method exist?
-            if(!method_exists(self::class,$parts[0])){
+            if (!method_exists(self::class, $parts[0])) {
                 throw new Exception('Magic method must start with either "get", "create", "update" or "delete"');
             }
             $function = $parts[0];
             $subModel = '';
-            for($i=1;$i<count($parts);$i++){
+            for ($i = 1; $i < count($parts); $i++) {
                 $subModel .= $parts[$i];
             }
             $subModel = lcfirst($subModel);
@@ -75,13 +76,13 @@ class Transformer
      * @return array
      * @throws Exception
      */
-    private static function getStructure($model){
-        if(isset(self::$knownModels[$model])){
+    private static function getStructure($model)
+    {
+        if (isset(self::$knownModels[$model])) {
             return self::$knownModels;
         }
         return IndexModel::getMigrateStructure($model, self::$migratePath);
     }
-
 
 
     /**
@@ -91,14 +92,15 @@ class Transformer
      * @throws DbException
      * @throws Exception
      */
-    static function get($id){
+    static function get($id)
+    {
         $structure = self::getStructure(self::$model);
 
         $transformer = self::$transformer::modelStructure();
         // transformer-translations?
         $translatedTransformer = [];
-        foreach ($transformer as $tableOrColumn => $values){
-            if(isset($values['translate'])){
+        foreach ($transformer as $tableOrColumn => $values) {
+            if (isset($values['translate'])) {
                 $translatedTransformer[$values['translate']] = $values;
                 $translatedTransformer[$values['translate']]['translate'] = $tableOrColumn;
             } else {
@@ -106,31 +108,36 @@ class Transformer
             }
         }
         $includeDeleted = false;
-        $queries = [self::$model=>[]];
+        $queries = [self::$model => []];
         $model = self::$model;
-        foreach ($structure as $tableOrColumn => $definition){
+        foreach ($structure as $tableOrColumn => $definition) {
             reset($definition);
-            if(is_array($definition[key($definition)])){
+            if (is_array($definition[key($definition)])) {
                 // is table
-                if(isset($translatedTransformer[$tableOrColumn]['protection']) && $translatedTransformer[$tableOrColumn]['protection'] == 'hidden'){
+                if (isset($translatedTransformer[$tableOrColumn]['protection']) &&
+                    $translatedTransformer[$tableOrColumn]['protection'] == 'hidden') {
                     continue;
                 }
-                $queries[$tableOrColumn]['as'] = isset($translatedTransformer[$tableOrColumn]['translate'])?$translatedTransformer[$tableOrColumn]['translate'] : $tableOrColumn;;
+                $queries[$tableOrColumn]['as'] =
+                    isset($translatedTransformer[$tableOrColumn]['translate']) ? $translatedTransformer[$tableOrColumn]['translate'] : $tableOrColumn;;
                 $queries[$tableOrColumn]['where'] = [];
-                if(!$includeDeleted){
+                if (!$includeDeleted) {
                     $queries[$tableOrColumn]['where'] = ['^delete_date'];
                 }
-                $queries[$tableOrColumn]['depth'] = isset($translatedTransformer[$tableOrColumn]['depth'])?$translatedTransformer[$tableOrColumn]['depth'] : 'many';
-                foreach ($definition as $key =>$value){
-                    if($key == $model .'_id'){
-                        $queries[$tableOrColumn]['where'][$key] = '$'.$id;
+                $queries[$tableOrColumn]['depth'] =
+                    isset($translatedTransformer[$tableOrColumn]['depth']) ? $translatedTransformer[$tableOrColumn]['depth'] : 'many';
+                foreach ($definition as $key => $value) {
+                    if ($key == $model . '_id') {
+                        $queries[$tableOrColumn]['where'][$key] = '$' . $id;
                     }
                     // default
-                    $queries[$tableOrColumn]['select'][$key] = $tableOrColumn.'.'.$key;
-                    if(isset($translatedTransformer[$tableOrColumn])){
+                    $queries[$tableOrColumn]['select'][$key] = $tableOrColumn . '.' . $key;
+                    if (isset($translatedTransformer[$tableOrColumn])) {
                         // onRead?
-                        if(isset($translatedTransformer[$tableOrColumn]['on_read']) && isset($translatedTransformer[$tableOrColumn]['on_read'][$key])){
-                            $queries[$tableOrColumn]['select'][$key] = $translatedTransformer[$tableOrColumn]['on_read'][$key]($key);
+                        if (isset($translatedTransformer[$tableOrColumn]['on_read']) &&
+                            isset($translatedTransformer[$tableOrColumn]['on_read'][$key])) {
+                            $queries[$tableOrColumn]['select'][$key] =
+                                $translatedTransformer[$tableOrColumn]['on_read'][$key]($key);
                         }
                     }
                 }
@@ -138,39 +145,47 @@ class Transformer
                 // is key of main
                 $queries[$model]['depth'] = 'main';
                 $queries[$model]['as'] = $model;
-                if($tableOrColumn == 'id'){
-                    $queries[$model]['where'][$tableOrColumn] = '$'.$id;
+                if ($tableOrColumn == 'id') {
+                    $queries[$model]['where'][$tableOrColumn] = '$' . $id;
                 }
                 // default
-                $queries[$model]['select'][$tableOrColumn] = $model.'.'.$tableOrColumn;
-                if(isset($translatedTransformer[$tableOrColumn])){
+                $queries[$model]['select'][$tableOrColumn] = $model . '.' . $tableOrColumn;
+                if (isset($translatedTransformer[$tableOrColumn])) {
                     // is hidden/protected?
-                    if(isset($translatedTransformer[$tableOrColumn]['protection'])){
+                    if (isset($translatedTransformer[$tableOrColumn]['protection'])) {
                         // do nothing for now
                         unset($queries[$model]['select'][$tableOrColumn]);
                     } else {
                         // onRead?
-                        if(isset($translatedTransformer[$tableOrColumn]['on_read'])){
-                            $queries[$model]['select'][$tableOrColumn] = $translatedTransformer[$tableOrColumn]['on_read']($tableOrColumn);
+                        if (isset($translatedTransformer[$tableOrColumn]['on_read'])) {
+                            $queries[$model]['select'][$tableOrColumn] =
+                                $translatedTransformer[$tableOrColumn]['on_read']($tableOrColumn);
                         }
                         // translate?
-                        if(isset($translatedTransformer[$tableOrColumn]['translate'])){
-                            $queries[$model]['select'][$tableOrColumn] .= ':' . $translatedTransformer[$tableOrColumn]['translate'];
+                        if (isset($translatedTransformer[$tableOrColumn]['translate'])) {
+                            $queries[$model]['select'][$tableOrColumn] .= ':' .
+                                                                          $translatedTransformer[$tableOrColumn]['translate'];
                         }
                     }
                 }
             }
         }
-        foreach ($queries as $i =>$query){
-            $queries[$i]['select'] = implode(' ',array_values($queries[$i]['select']));
+        foreach ($queries as $i => $query) {
+            $queries[$i]['select'] = implode(' ', array_values($queries[$i]['select']));
         }
         $entity = [];
 
-        foreach ($queries as $table => $query){
-            switch ($query['depth']){
-                case 'main': $entity = IndexModel::first(Db::easy($query['select'],$query['where'])); break;
-                case 'one': $entity[$query['as']] = IndexModel::first(Db::easy($query['select'],$query['where'])); break;
-                case 'many': $entity[$query['as']] = Db::easy($query['select'],$query['where']); break;
+        foreach ($queries as $table => $query) {
+            switch ($query['depth']) {
+                case 'main':
+                    $entity = IndexModel::first(Db::easy($query['select'], $query['where']));
+                    break;
+                case 'one':
+                    $entity[$query['as']] = IndexModel::first(Db::easy($query['select'], $query['where']));
+                    break;
+                case 'many':
+                    $entity[$query['as']] = Db::easy($query['select'], $query['where']);
+                    break;
             }
         }
         return $entity;
@@ -189,9 +204,9 @@ class Transformer
      */
     static function create($obj, $givenId = false, $subModel = false)
     {
-        $toDb = self::prepareForTransaction($obj,$givenId,$subModel);
+        $toDb = self::prepareForTransaction($obj, $givenId, $subModel);
         self::executeTransactions($toDb);
-        if(isset($toDb[self::$model]['id']) || $givenId){
+        if (isset($toDb[self::$model]['id']) || $givenId) {
             $id = $givenId ? $givenId : $toDb[self::$model]['id'];
             return self::get(self::sanitizeId($id));
         }
@@ -207,22 +222,23 @@ class Transformer
      * @throws DbException
      * @throws Exception
      */
-    static function update($obj, $givenId, $subModel = false){
-        $existingEntity = IndexModel::first(self::find(['id'=>$givenId],false, $subModel));
-        if(empty($existingEntity)){
+    static function update($obj, $givenId, $subModel = false)
+    {
+        $existingEntity = IndexModel::first(self::find(['id' => $givenId], false, $subModel));
+        if (empty($existingEntity)) {
             throw new Exception('Cannot find entity to update');
         }
-        $toDb = self::prepareForTransaction($obj,$givenId,$subModel,'update');
-        self::executeTransactions($toDb,['id'=> ( self::$assumesUuid ? '$' : '') . $givenId]);
-        if(!$subModel){
-            foreach ($obj as $key => $value){
-                if(isset($existingEntity[$key])){
+        $toDb = self::prepareForTransaction($obj, $givenId, $subModel, 'update');
+        self::executeTransactions($toDb, ['id' => (self::$assumesUuid ? '$' : '') . $givenId]);
+        if (!$subModel) {
+            foreach ($obj as $key => $value) {
+                if (isset($existingEntity[$key])) {
                     $existingEntity[$key] = $value;
                 }
             }
         } else {
-            foreach ($obj as $key => $value){
-                if(isset($existingEntity[$subModel][$key])){
+            foreach ($obj as $key => $value) {
+                if (isset($existingEntity[$subModel][$key])) {
                     $existingEntity[$subModel][$key] = $value;
                 }
             }
@@ -239,8 +255,9 @@ class Transformer
      * @throws DbException
      * @throws Exception
      */
-    static function find($obj, $void = false, $subModel = false){
-        if($void){
+    static function find($obj, $void = false, $subModel = false)
+    {
+        if ($void) {
             throw new Exception('Malformed magic handling?');
         }
         $structure = self::$transformer::modelStructure();
@@ -248,15 +265,15 @@ class Transformer
         $qualifier = 'id';
         $condition = [];
         $results = [];
-        if($subModel){
+        if ($subModel) {
             $qualifier = self::$model . '_id';
             $structure = $structure[$subModel];
             $table = isset($structure['translate']) ? $structure['translate'] : $subModel;
         }
-        foreach ($structure as $columnOrTable => $values){
-            if(isset($obj[$columnOrTable])){
-                $prefix = (substr(strtolower($columnOrTable),-2) == 'id' && self::$assumesUuid) ? '$' : '';
-                if(isset($values['translate'])){
+        foreach ($structure as $columnOrTable => $values) {
+            if (isset($obj[$columnOrTable])) {
+                $prefix = (substr(strtolower($columnOrTable), -2) == 'id' && self::$assumesUuid) ? '$' : '';
+                if (isset($values['translate'])) {
                     $condition[$values['translate']] = $prefix . $obj[$columnOrTable];
                 } else {
                     $condition[$columnOrTable] = $prefix . $obj[$columnOrTable];
@@ -264,13 +281,15 @@ class Transformer
 
             }
         }
-        $ids = Db::easy($table . '.' . $qualifier,$condition);
-        foreach ($ids as $id){
+        $ids = Db::easy($table . '.' . $qualifier, $condition);
+        foreach ($ids as $id) {
             $results[] = self::get($id[$qualifier]);
         }
         return $results;
     }
-    static function delete($obj, $givenId, $subModel = false){
+
+    static function delete($obj, $givenId, $subModel = false)
+    {
 
     }
 
@@ -283,37 +302,43 @@ class Transformer
      * @return array
      * @throws Exception
      */
-    private static function prepareForTransaction($passIn, $givenId = false, $subModel = false, $crudOperation = 'create'){
+    private static function prepareForTransaction(
+        $passIn,
+        $givenId = false,
+        $subModel = false,
+        $crudOperation = 'create'
+    ) {
         $structure = self::$transformer::modelStructure($givenId);
         $sanitized = [];
-        switch ($crudOperation){
+        switch ($crudOperation) {
             case 'create':
-                $sanitized = TransformValidator::validateStructureCreate($passIn,$structure, $subModel);
+                $sanitized = TransformValidator::validateStructureCreate($passIn, $structure, $subModel);
                 break;
             case 'update':
-                $sanitized = TransformValidator::validateStructureUpdate($passIn,$structure, $subModel);
+                $sanitized = TransformValidator::validateStructureUpdate($passIn, $structure, $subModel);
                 break;
         }
 
-        return TransformValidator::flatten(self::$model,$sanitized);
+        return TransformValidator::flatten(self::$model, $sanitized);
     }
 
     /**
-     * @param       $preparedTransactions
+     * @param            $preparedTransactions
      *
      * @param null|array $updateCondition
      *
      * @throws DbException
      */
-    private static function executeTransactions($preparedTransactions, $updateCondition = null){
-        foreach ($preparedTransactions as $table => $values){
+    private static function executeTransactions($preparedTransactions, $updateCondition = null)
+    {
+        foreach ($preparedTransactions as $table => $values) {
             reset($values);
-            if(key($values) === 0){
-                foreach ($values as $valueSet){
-                    Db::ask($table,$valueSet, $updateCondition);
+            if (key($values) === 0) {
+                foreach ($values as $valueSet) {
+                    Db::ask($table, $valueSet, $updateCondition);
                 }
             } else {
-                Db::ask($table,$values, $updateCondition);
+                Db::ask($table, $values, $updateCondition);
             }
         }
     }
@@ -323,11 +348,12 @@ class Transformer
      *
      * @return string|string[]|null
      */
-    private static function sanitizeId($idString){
-        if(is_numeric($idString)){
+    private static function sanitizeId($idString)
+    {
+        if (is_numeric($idString)) {
             return $idString;
         } else {
-            return preg_replace('/\$|UNHEX|\(|\)/','',$idString);
+            return preg_replace('/\$|UNHEX|\(|\)/', '', $idString);
         }
     }
 }
