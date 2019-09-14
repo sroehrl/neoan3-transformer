@@ -222,28 +222,21 @@ class Transformer
      * @throws DbException
      * @throws Exception
      */
-    static function update($obj, $givenId, $subModel = false)
+    static function update($obj, $givenId = false, $subModel = false)
     {
-        $existingEntity = IndexModel::first(self::find(['id' => $givenId], false, $subModel));
+        $id = self::identifyUsableId($obj, $givenId, $subModel);
+        $existingEntity = IndexModel::first(self::find(['id' => $id], false, $subModel));
         if (empty($existingEntity)) {
             throw new Exception('Cannot find entity to update');
         }
-        $toDb = self::prepareForTransaction($obj, $givenId, $subModel, 'update');
-        self::executeTransactions($toDb, ['id' => (self::$assumesUuid ? '$' : '') . $givenId]);
-        if (!$subModel) {
-            foreach ($obj as $key => $value) {
-                if (isset($existingEntity[$key])) {
-                    $existingEntity[$key] = $value;
-                }
-            }
+        if(!$subModel){
+            $stripped = TransformValidator::stripUnchangedData($existingEntity,$subModel ? $obj[$subModel] : $obj);
         } else {
-            foreach ($obj as $key => $value) {
-                if (isset($existingEntity[$subModel][$key])) {
-                    $existingEntity[$subModel][$key] = $value;
-                }
-            }
+            $stripped = $obj;
         }
-        return $existingEntity;
+        $prepared = self::prepareForTransaction($stripped, $id, $subModel, 'update');
+        self::executeTransactions($prepared, ['id' => (self::$assumesUuid ? '$' : '') . $id]);
+        return self::applyChangesToExistingModel($existingEntity,$obj,$subModel);
     }
 
     /**
@@ -288,9 +281,78 @@ class Transformer
         return $results;
     }
 
-    static function delete($obj, $givenId, $subModel = false)
+    /**
+     * @param      $obj
+     * @param      $givenId
+     * @param bool $subModel
+     *
+     * @return array|mixed
+     * @throws Exception
+     */
+    static function delete($obj, $givenId = false, $subModel = false)
     {
+        $id = self::identifyUsableId($obj, $givenId, $subModel);
 
+        $prefix = self::$assumesUuid ? '$' : '';
+        $preparedTransactions = self::prepareForTransaction($obj,$id,$subModel,'delete');
+        foreach ($preparedTransactions as $table => $values) {
+            reset($values);
+            if (key($values) === 0) {
+                foreach ($values as $valueSet) {
+                    Db::ask($table, ['delete_date'=>'.'], ['id' => $prefix . $valueSet['id']]);
+                }
+            } else {
+                Db::ask($table, ['delete_date'=>'.'], ['id' => $prefix . $values['id']]);
+            }
+        }
+        return IndexModel::first(self::find(['id' => $id], false, $subModel));
+    }
+
+    /**
+     * @param $passIn
+     * @param $givenId
+     *
+     * @return mixed
+     * @throws Exception
+     */
+    private static function identifyUsableId($passIn, $givenId, $subModel){
+        if(!$subModel){
+            if(!isset($passIn['id']) && !$givenId){
+                throw new Exception('Cannot identify entity. No Id given.');
+            }
+            return $givenId ? $givenId : $passIn['id'];
+        } else {
+            if(!isset($passIn[$subModel]['id']) && !$givenId){
+                throw new Exception('Cannot identify entity. No Id given.');
+            }
+            return $givenId ? $givenId : $passIn[$subModel]['id'];
+        }
+
+    }
+
+    /**
+     * @param             $existingModel
+     * @param             $approvedChanges
+     * @param string|bool $subModel
+     *
+     * @return mixed
+     */
+    private static function applyChangesToExistingModel($existingModel, $approvedChanges, $subModel = false)
+    {
+        if (!$subModel) {
+            foreach ($approvedChanges as $key => $value) {
+                if (isset($existingModel[$key])) {
+                    $existingModel[$key] = $value;
+                }
+            }
+        } else {
+            foreach ($approvedChanges as $key => $value) {
+                if (isset($existingModel[$subModel][$key])) {
+                    $existingModel[$subModel][$key] = $value;
+                }
+            }
+        }
+        return $existingModel;
     }
 
     /**
@@ -315,7 +377,8 @@ class Transformer
                 $sanitized = TransformValidator::validateStructureCreate($passIn, $structure, $subModel);
                 break;
             case 'update':
-                $sanitized = TransformValidator::validateStructureUpdate($passIn, $structure, $subModel);
+            case 'delete':
+                $sanitized = TransformValidator::validateStructureUpdateOrDelete($passIn, $structure, $subModel, $crudOperation);
                 break;
         }
 
@@ -335,10 +398,14 @@ class Transformer
             reset($values);
             if (key($values) === 0) {
                 foreach ($values as $valueSet) {
-                    Db::ask($table, $valueSet, $updateCondition);
+                    if(!empty($valueSet)){
+                        Db::ask($table, $valueSet, $updateCondition);
+                    }
                 }
             } else {
-                Db::ask($table, $values, $updateCondition);
+                if(!empty($values)){
+                    Db::ask($table, $values, $updateCondition);
+                }
             }
         }
     }

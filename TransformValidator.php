@@ -32,20 +32,52 @@ class TransformValidator
         return $separate;
     }
 
+    static function stripUnchangedData($existingEntity, $changedEntity)
+    {
+        $result = [];
+        foreach ($changedEntity as $key => $value) {
+            if (!is_array($existingEntity) || !array_key_exists($key, $existingEntity)) {
+                $result[$key] = $value;
+                continue;
+            }
+            if (is_array($value)) {
+                $recursiveArrayDiff = self::stripUnchangedData($value, $existingEntity[$key]);
+                if (count($recursiveArrayDiff)) {
+                    $result[$key] = $recursiveArrayDiff;
+                }
+                continue;
+            }
+            if ($value != $existingEntity[$key]) {
+                $result[$key] = $value;
+            }
+        }
+        return $result;
+    }
+
     /**
      * @param             $passIn
      * @param             $structure
      * @param bool|string $subModel
      *
+     * @param string      $mode
+     *
      * @return mixed
      */
-    static function validateStructureUpdate($passIn, $structure, $subModel = false)
+    static function validateStructureUpdateOrDelete($passIn, $structure, $subModel = false, $mode = 'update')
     {
+        foreach ($passIn as $sub => $any) {
+            // clear empty sets
+            if (is_array($any) && empty($any)) {
+                unset($passIn[$sub]);
+            } elseif (is_array($any) && !$subModel) {
+                $passIn[$sub] = self::validateStructureUpdateOrDelete($passIn[$sub], $structure[$sub], $sub, $mode);
+            }
+        }
         foreach ($structure as $tableOrField => $info) {
             if (self::subModelCondition($subModel, $tableOrField)) {
                 if (isset($passIn[$tableOrField])) {
-                    if (isset($info['on_update'])) {
-                        $passIn = self::applyCallback($info, 'on_update', $tableOrField, $passIn);
+                    if (isset($info['on_' . $mode])) {
+                        $passIn = self::applyCallback($info, 'on_' . $mode, $tableOrField, $passIn);
                     }
                     $passIn = self::translate($info, $tableOrField, $passIn);
                 }
@@ -53,6 +85,8 @@ class TransformValidator
         }
         return $passIn;
     }
+
+
 
     /**
      * @param             $passIn

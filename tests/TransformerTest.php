@@ -41,18 +41,18 @@ class TransformerTest extends TestCase
     public function __construct($name = null, array $data = [], $dataName = '')
     {
         parent::__construct($name, $data, $dataName);
-        Db::setEnvironment(['assumes_uuid'=>true,'name'=>$this->yourDb]);
+        Db::setEnvironment(['assumes_uuid' => true, 'name' => $this->yourDb, 'dev_errors'=>true]);
 
-        try{
+        try {
             Db::ask('>Truncate user');
             Db::ask('>Truncate user_email');
             Db::ask('>Truncate user_password');
-        } catch (DbException $e){
+        } catch (DbException $e) {
             var_dump($e->getMessage());
             die();
         }
 
-        $this->transformerInstance = new Transformer(\MockTransformer::class,'user' , __DIR__ .'/mockMigrate.json');
+        $this->transformerInstance = new Transformer(\MockTransformer::class, 'user', __DIR__ . '/mockMigrate.json');
     }
 
 
@@ -64,7 +64,7 @@ class TransformerTest extends TestCase
     {
 
         $result = $this->transformerInstance::create([
-            'email' => [
+            'email'    => [
                 'email' => 'some@other.com'
             ],
             'password' => [
@@ -75,6 +75,7 @@ class TransformerTest extends TestCase
         $this->validateModel($result);
         return $result['id'];
     }
+
     /**
      *
      * @depends testCreate
@@ -82,13 +83,15 @@ class TransformerTest extends TestCase
      * @param $givenId
      *
      */
-    public function testCreateMagicFailure($givenId){
+    public function testCreateMagicFailure($givenId)
+    {
         // try duplicate
         $this->expectException(Exception::class);
         $this->transformerInstance::createEmail([
             'email' => 'some@other.com'
-        ],$givenId);
+        ], $givenId);
     }
+
     /**
      *
      * @depends testCreate
@@ -96,25 +99,48 @@ class TransformerTest extends TestCase
      * @param $givenId
      *
      */
-    public function testCreateMagic($givenId){
+    public function testCreateMagic($givenId)
+    {
         $result = $this->transformerInstance::createEmail([
             'email' => 'some2nd@other.com'
-        ],$givenId);
+        ], $givenId);
         $this->validateModel($result);
     }
 
     /**
      * @throws DbException
      */
-    public function testCreateFailure(){
+    public function testCreateFailure()
+    {
         $this->expectException(Exception::class);
         $this->transformerInstance::create([
-            'email' => 'some@other.com',
+            'email'    => 'some@other.com',
             'password' => [
                 'password' => 'foobarbaz'
             ],
             'userName' => 'sam'
         ]);
+    }
+
+    /**
+     *
+     * @depends testCreate
+     *
+     * @param $givenId
+     *
+     * @throws DbException
+     */
+    public function testIdentifyUsableId($givenId){
+        $r = $this->transformerInstance::get($givenId);
+        $this->validateModel($r);
+        // exists (no given id)
+        $id = $this->invokeMethod($this->transformerInstance, 'identifyUsableId', array($r, false));
+        $this->assertEquals($r['id'],$id, 'Id could not be retrieved correctly');
+        // exists & given id
+        $fakeId = 'ABC';
+        $id = $this->invokeMethod($this->transformerInstance, 'identifyUsableId', array($r, $fakeId));
+        $this->assertEquals($fakeId,$id, 'Id could not be retrieved correctly');
+
     }
 
     /**
@@ -136,8 +162,9 @@ class TransformerTest extends TestCase
     /**
      *
      */
-    public function testFind(){
-        $r = $this->transformerInstance::find(['userName'=>'sam']);
+    public function testFind()
+    {
+        $r = $this->transformerInstance::find(['userName' => 'sam']);
         $this->validateModel($r, true);
 
     }
@@ -145,8 +172,9 @@ class TransformerTest extends TestCase
     /**
      *
      */
-    public function testFindMagic(){
-        $r = $this->transformerInstance::findEmail(['email'=>'some@other.com']);
+    public function testFindMagic()
+    {
+        $r = $this->transformerInstance::findEmail(['email' => 'some@other.com']);
         $this->validateModel($r, true);
     }
 
@@ -155,10 +183,11 @@ class TransformerTest extends TestCase
      *
      * @param $givenId
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    public function testUpdate($givenId){
-        $r = $this->transformerInstance::update(['userName'=>'Josh'],$givenId);
+    public function testUpdate($givenId)
+    {
+        $r = $this->transformerInstance::update(['userName' => 'Josh'], $givenId);
         $this->validateModel($r);
     }
     /**
@@ -166,43 +195,99 @@ class TransformerTest extends TestCase
      *
      * @param $givenId
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    public function testUpdateFailure($givenId){
-        // expect duplicate
-        $this->expectException(Exception::class);
-        $this->transformerInstance::update(['userName'=>'Josh'],$givenId);
+    public function testUpdateWithoutGivenId($givenId){
+        $user = $this->transformerInstance::get($givenId);
+        $this->validateModel($user);
+        $user['userName'] = 'James';
+        $r = $this->transformerInstance::update($user);
+        $this->validateModel($r);
     }
+
     /**
      * @depends testGet
      *
      * @param $givenId
      *
-     * @throws \Exception
+     * @throws Exception
      */
-    public function testUpdateMagic($givenId){
+    public function testUpdateFailure($givenId)
+    {
+        // expect duplicate
+        $this->expectException(Exception::class);
+        $this->transformerInstance::update(['userName' => 'James'], $givenId);
+    }
+
+    /**
+     * @depends testGet
+     *
+     * @param $givenId
+     *
+     */
+    public function testUpdateMagic($givenId)
+    {
         $user = $this->transformerInstance::get($givenId);
         $this->validateModel($user);
         // according to mock-transformer this should never be done. BUT: we are testing
-        $t = $this->transformerInstance::updateEmail(['email' => 'some@other.com'],$givenId);
+        $t = $this->transformerInstance::updateEmail(['email' => 'some@other.com'], $givenId);
         $this->validateModel($t);
 
+    }
+
+    /**
+     * @depends testGet
+     *
+     * @param $givenId
+     *
+     * @throws DbException
+     */
+    public function testDeleteMagic($givenId)
+    {
+        $user = $this->transformerInstance::get($givenId);
+        $this->validateModel($user);
+        $this->assertArrayHasKey('email',$user,'User missing?');
+        $emailToDelete = $user['email'];
+        $user = $this->transformerInstance::deleteEmail($emailToDelete);
+        $this->validateModel($user);
+    }
+
+    /**
+     * @depends testGet
+     *
+     * @param $givenId
+     *
+     * @throws DbException
+     */
+    public function testDelete($givenId){
+        $user = $this->transformerInstance::get($givenId);
+        $this->validateModel($user);
+        $user = $this->transformerInstance::delete($user);
+        $this->assertTrue(empty($user));
     }
 
     /**
      * @param      $model
      * @param bool $multi
      */
-    private function validateModel($model, $multi=false){
-        $this->assertIsArray($model,'Could not resolve');
-        if($multi){
-            $this->assertArrayHasKey(0,$model,'Empty result');
-            $this->assertArrayHasKey('id',$model[0],'Result has wrong format');
+    private function validateModel($model, $multi = false)
+    {
+        $this->assertIsArray($model, 'Could not resolve');
+        if ($multi) {
+            $this->assertArrayHasKey(0, $model, 'Empty result');
+            $this->assertArrayHasKey('id', $model[0], 'Result has wrong format');
         } else {
-            $this->assertIsArray($model,'Could not retrieve user');
-            $this->assertArrayHasKey('email',$model,'User model format issue: can\'t find email in model.');
+            $this->assertIsArray($model, 'Could not retrieve user');
+            $this->assertArrayHasKey('email', $model, 'User model format issue: can\'t find email in model.');
         }
 
+    }
+    public function invokeMethod(&$object, $methodName, array $parameters = array())
+    {
+        $reflection = new \ReflectionClass(get_class($object));
+        $method = $reflection->getMethod($methodName);
+        $method->setAccessible(true);
+        return $method->invokeArgs($object, $parameters);
     }
 
 
