@@ -86,13 +86,14 @@ class Transformer
 
 
     /**
-     * @param $id
+     * @param      $id
+     * @param bool $includeDeleted
      *
      * @return array|mixed
      * @throws DbException
      * @throws Exception
      */
-    static function get($id)
+    static function get($id, $includeDeleted = false)
     {
         $structure = self::getStructure(self::$model);
 
@@ -107,7 +108,6 @@ class Transformer
                 $translatedTransformer[$tableOrColumn] = $values;
             }
         }
-        $includeDeleted = false;
         $queries = [self::$model => []];
         $model = self::$model;
         foreach ($structure as $tableOrColumn => $definition) {
@@ -122,7 +122,7 @@ class Transformer
                     isset($translatedTransformer[$tableOrColumn]['translate']) ? $translatedTransformer[$tableOrColumn]['translate'] : $tableOrColumn;;
                 $queries[$tableOrColumn]['where'] = [];
                 if (!$includeDeleted) {
-                    $queries[$tableOrColumn]['where'] = ['^delete_date'];
+                    $queries[$tableOrColumn]['where']['delete_date'] = '';
                 }
                 $queries[$tableOrColumn]['depth'] =
                     isset($translatedTransformer[$tableOrColumn]['depth']) ? $translatedTransformer[$tableOrColumn]['depth'] : 'many';
@@ -147,6 +147,9 @@ class Transformer
                 $queries[$model]['as'] = $model;
                 if ($tableOrColumn == 'id') {
                     $queries[$model]['where'][$tableOrColumn] = '$' . $id;
+                    if(!$includeDeleted){
+                        $queries[$model]['where']['delete_date'] = '';
+                    }
                 }
                 // default
                 $queries[$model]['select'][$tableOrColumn] = $model . '.' . $tableOrColumn;
@@ -178,7 +181,11 @@ class Transformer
         foreach ($queries as $table => $query) {
             switch ($query['depth']) {
                 case 'main':
-                    $entity = IndexModel::first(Db::easy($query['select'], $query['where']));
+                    $exec = Db::easy($query['select'], $query['where']);
+                    $entity = IndexModel::first($exec);
+                    if(empty($entity)){
+                        break 2;
+                    }
                     break;
                 case 'one':
                     $entity[$query['as']] = IndexModel::first(Db::easy($query['select'], $query['where']));
@@ -188,6 +195,7 @@ class Transformer
                     break;
             }
         }
+
         return $entity;
     }
 

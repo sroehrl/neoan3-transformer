@@ -76,6 +76,12 @@ class MockTransformer implements IndexTransformerAlias
                 'translate' => 'user_name',
                 'on_update' => function($input,$all){return self::checkUniqueUserName($input, $all);}
             ],
+            'delete_date' => [
+                'on_delete' => function($void, $all){
+                    $all['email']['delete_date'] = '.';
+                    return '.';
+                }
+            ],
             'email' => [
                 'translate' =>'user_email',
                 'required' => true,

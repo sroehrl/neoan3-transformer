@@ -134,11 +134,11 @@ class TransformerTest extends TestCase
         $r = $this->transformerInstance::get($givenId);
         $this->validateModel($r);
         // exists (no given id)
-        $id = $this->invokeMethod($this->transformerInstance, 'identifyUsableId', array($r, false));
+        $id = $this->invokeMethod($this->transformerInstance, 'identifyUsableId', array($r, false,false));
         $this->assertEquals($r['id'],$id, 'Id could not be retrieved correctly');
         // exists & given id
         $fakeId = 'ABC';
-        $id = $this->invokeMethod($this->transformerInstance, 'identifyUsableId', array($r, $fakeId));
+        $id = $this->invokeMethod($this->transformerInstance, 'identifyUsableId', array($r, $fakeId, false));
         $this->assertEquals($fakeId,$id, 'Id could not be retrieved correctly');
 
     }
@@ -214,9 +214,9 @@ class TransformerTest extends TestCase
      */
     public function testUpdateFailure($givenId)
     {
-        // expect duplicate
+        // expect malformed
         $this->expectException(Exception::class);
-        $this->transformerInstance::update(['userName' => 'James'], $givenId);
+        $this->transformerInstance::update(['userNames' => 'James'], $givenId);
     }
 
     /**
@@ -224,11 +224,14 @@ class TransformerTest extends TestCase
      *
      * @param $givenId
      *
+     * @throws DbException
      */
     public function testUpdateMagic($givenId)
     {
-        $user = $this->transformerInstance::get($givenId);
-        $this->validateModel($user);
+        sleep(1);
+//        $user = $this->transformerInstance::get($givenId);
+
+//        $this->validateModel($user);
         // according to mock-transformer this should never be done. BUT: we are testing
         $t = $this->transformerInstance::updateEmail(['email' => 'some@other.com'], $givenId);
         $this->validateModel($t);
