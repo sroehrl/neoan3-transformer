@@ -228,10 +228,9 @@ class TransformerTest extends TestCase
      */
     public function testUpdateMagic($givenId)
     {
-        sleep(1);
-//        $user = $this->transformerInstance::get($givenId);
+        $user = $this->transformerInstance::get($givenId);
 
-//        $this->validateModel($user);
+        $this->validateModel($user);
         // according to mock-transformer this should never be done. BUT: we are testing
         $t = $this->transformerInstance::updateEmail(['email' => 'some@other.com'], $givenId);
         $this->validateModel($t);
