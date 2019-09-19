@@ -106,7 +106,9 @@ class TransformValidator
                 }
                 // deep?
                 if (isset($info['depth'])) {
-                    self::validateRequiredFields($info, $passIn[$tableOrField]);
+                    if(isset($info['required']) && $info['required'] || isset($passIn[$tableOrField])){
+                        self::validateRequiredFields($info, $passIn[$tableOrField]);
+                    }
                 }
                 if (isset($info['on_creation'])) {
                     $passIn = self::applyCallback($info, 'on_creation', $tableOrField, $passIn);
@@ -167,10 +169,13 @@ class TransformValidator
                     break;
                 case 'many':
                     foreach ($currentSub[$listener] as $field => $closure) {
-                        foreach ($passIn[$outerKey] as $i => $oneInMany) {
-                            $value = isset($oneInMany[$field]) ? $oneInMany[$field] : false;
-                            $passIn[$outerKey][$i][$field] = $closure($value, $passIn);
+                        if(isset($passIn[$outerKey])){
+                            foreach ($passIn[$outerKey] as $i => $oneInMany) {
+                                $value = isset($oneInMany[$field]) ? $oneInMany[$field] : false;
+                                $passIn[$outerKey][$i][$field] = $closure($value, $passIn);
+                            }
                         }
+
                     }
                     break;
                 default:
