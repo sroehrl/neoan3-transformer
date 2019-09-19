@@ -128,7 +128,7 @@ class Transformer
                     isset($translatedTransformer[$tableOrColumn]['depth']) ? $translatedTransformer[$tableOrColumn]['depth'] : 'many';
                 foreach ($definition as $key => $value) {
                     if ($key == $model . '_id') {
-                        $queries[$tableOrColumn]['where'][$key] = '$' . $id;
+                        $queries[$tableOrColumn]['where'][$key] = (self::$assumesUuid ? '$' : '') . $id;
                     }
                     // default
                     $queries[$tableOrColumn]['select'][$key] = $tableOrColumn . '.' . $key;
@@ -146,7 +146,7 @@ class Transformer
                 $queries[$model]['depth'] = 'main';
                 $queries[$model]['as'] = $model;
                 if ($tableOrColumn == 'id') {
-                    $queries[$model]['where'][$tableOrColumn] = '$' . $id;
+                    $queries[$model]['where'][$tableOrColumn] = (self::$assumesUuid ? '$' : '') . $id;
                     if(!$includeDeleted){
                         $queries[$model]['where']['delete_date'] = '';
                     }
