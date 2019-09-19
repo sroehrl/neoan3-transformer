@@ -55,7 +55,7 @@ class Transformer
                 $include = '\\Neoan3\\Model\\' . ucfirst($model) . 'Transformer';
                 $transformer = $include;
             }
-            self::assignVariables($transformer, $model, $migratePath, $assumesUuid);
+            self::assignVariables($transformer, $model, $assumesUuid, $migratePath);
             return self::$method(...$arguments);
         } else {
             return $from[1]['class']::$method(...$arguments);
