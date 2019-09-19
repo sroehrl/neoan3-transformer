@@ -52,7 +52,7 @@ class TransformerTest extends TestCase
             die();
         }
 
-        $this->transformerInstance = new Transformer(\MockTransformer::class, 'user', __DIR__ . '/mockMigrate.json');
+        $this->transformerInstance = new Transformer(\MockTransformer::class, 'user', true,__DIR__ . '/mockMigrate.json');
     }
 
 

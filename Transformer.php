@@ -7,7 +7,6 @@ use Neoan3\Model\IndexModel;
 
 /**
  * Class Transformer
- *
  * @package Neoan3\Apps
  */
 class Transformer
@@ -32,7 +31,44 @@ class Transformer
      * @param bool $migratePath
      * @param bool $assumesUuid
      */
-    function __construct($transformer, $model, $migratePath = false, $assumesUuid = true)
+    function __construct($transformer, $model, $assumesUuid = true, $migratePath = false)
+    {
+        self::assignVariables($transformer, $model, $assumesUuid, $migratePath);
+    }
+
+    /**
+     * @param string      $method
+     * @param array       $arguments
+     * @param             $transformer
+     * @param bool        $assumesUuid
+     * @param bool|string $migratePath
+     *
+     * @return mixed
+     */
+    static function addMagic($method, $arguments, $transformer = false, $assumesUuid = true, $migratePath = false)
+    {
+        $from = debug_backtrace();
+        if (!method_exists($from[1]['class'], $method)) {
+            $parts = explode('\\', $from[1]['class']);
+            $model = lcfirst(substr(end($parts), 0, strlen('Model') * -1));
+            if (!$transformer) {
+                $include = '\\Neoan3\\Model\\' . ucfirst($model) . 'Transformer';
+                $transformer = $include;
+            }
+            self::assignVariables($transformer, $model, $migratePath, $assumesUuid);
+            return self::$method(...$arguments);
+        } else {
+            return $from[1]['class']::$method(...$arguments);
+        }
+    }
+
+    /**
+     * @param $transformer
+     * @param $model
+     * @param $assumesUuid
+     * @param $migratePath
+     */
+    private static function assignVariables($transformer, $model, $assumesUuid, $migratePath)
     {
         self::$transformer = $transformer;
         self::$model = $model;
@@ -147,7 +183,7 @@ class Transformer
                 $queries[$model]['as'] = $model;
                 if ($tableOrColumn == 'id') {
                     $queries[$model]['where'][$tableOrColumn] = (self::$assumesUuid ? '$' : '') . $id;
-                    if(!$includeDeleted){
+                    if (!$includeDeleted) {
                         $queries[$model]['where']['delete_date'] = '';
                     }
                 }
@@ -167,7 +203,7 @@ class Transformer
                         // translate?
                         if (isset($translatedTransformer[$tableOrColumn]['translate'])) {
                             $queries[$model]['select'][$tableOrColumn] .= ':' .
-                                                                          $translatedTransformer[$tableOrColumn]['translate'];
+                                $translatedTransformer[$tableOrColumn]['translate'];
                         }
                     }
                 }
@@ -183,7 +219,7 @@ class Transformer
                 case 'main':
                     $exec = Db::easy($query['select'], $query['where']);
                     $entity = IndexModel::first($exec);
-                    if(empty($entity)){
+                    if (empty($entity)) {
                         break 2;
                     }
                     break;
@@ -201,9 +237,7 @@ class Transformer
 
     /**
      * @param      $obj
-     *
      * @param bool $subModel
-     *
      * @param bool $givenId
      *
      * @return array
@@ -237,14 +271,14 @@ class Transformer
         if (empty($existingEntity)) {
             throw new Exception('Cannot find entity to update');
         }
-        if(!$subModel){
-            $stripped = TransformValidator::stripUnchangedData($existingEntity,$subModel ? $obj[$subModel] : $obj);
+        if (!$subModel) {
+            $stripped = TransformValidator::stripUnchangedData($existingEntity, $subModel ? $obj[$subModel] : $obj);
         } else {
             $stripped = $obj;
         }
         $prepared = self::prepareForTransaction($stripped, $id, $subModel, 'update');
         self::executeTransactions($prepared, ['id' => (self::$assumesUuid ? '$' : '') . $id]);
-        return self::applyChangesToExistingModel($existingEntity,$obj,$subModel);
+        return self::applyChangesToExistingModel($existingEntity, $obj, $subModel);
     }
 
     /**
@@ -302,15 +336,15 @@ class Transformer
         $id = self::identifyUsableId($obj, $givenId, $subModel);
 
         $prefix = self::$assumesUuid ? '$' : '';
-        $preparedTransactions = self::prepareForTransaction($obj,$id,$subModel,'delete');
+        $preparedTransactions = self::prepareForTransaction($obj, $id, $subModel, 'delete');
         foreach ($preparedTransactions as $table => $values) {
             reset($values);
             if (key($values) === 0) {
                 foreach ($values as $valueSet) {
-                    Db::ask($table, ['delete_date'=>'.'], ['id' => $prefix . $valueSet['id']]);
+                    Db::ask($table, ['delete_date' => '.'], ['id' => $prefix . $valueSet['id']]);
                 }
             } else {
-                Db::ask($table, ['delete_date'=>'.'], ['id' => $prefix . $values['id']]);
+                Db::ask($table, ['delete_date' => '.'], ['id' => $prefix . $values['id']]);
             }
         }
         return IndexModel::first(self::find(['id' => $id], false, $subModel));
@@ -323,14 +357,15 @@ class Transformer
      * @return mixed
      * @throws Exception
      */
-    private static function identifyUsableId($passIn, $givenId, $subModel){
-        if(!$subModel){
-            if(!isset($passIn['id']) && !$givenId){
+    private static function identifyUsableId($passIn, $givenId, $subModel)
+    {
+        if (!$subModel) {
+            if (!isset($passIn['id']) && !$givenId) {
                 throw new Exception('Cannot identify entity. No Id given.');
             }
             return $givenId ? $givenId : $passIn['id'];
         } else {
-            if(!isset($passIn[$subModel]['id']) && !$givenId){
+            if (!isset($passIn[$subModel]['id']) && !$givenId) {
                 throw new Exception('Cannot identify entity. No Id given.');
             }
             return $givenId ? $givenId : $passIn[$subModel]['id'];
@@ -386,7 +421,8 @@ class Transformer
                 break;
             case 'update':
             case 'delete':
-                $sanitized = TransformValidator::validateStructureUpdateOrDelete($passIn, $structure, $subModel, $crudOperation);
+                $sanitized = TransformValidator::validateStructureUpdateOrDelete($passIn, $structure, $subModel,
+                    $crudOperation);
                 break;
         }
 
@@ -395,7 +431,6 @@ class Transformer
 
     /**
      * @param            $preparedTransactions
-     *
      * @param null|array $updateCondition
      *
      * @throws DbException
@@ -406,12 +441,12 @@ class Transformer
             reset($values);
             if (key($values) === 0) {
                 foreach ($values as $valueSet) {
-                    if(!empty($valueSet)){
+                    if (!empty($valueSet)) {
                         Db::ask($table, $valueSet, $updateCondition);
                     }
                 }
             } else {
-                if(!empty($values)){
+                if (!empty($values)) {
                     Db::ask($table, $values, $updateCondition);
                 }
             }
