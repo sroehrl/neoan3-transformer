@@ -106,7 +106,7 @@ class TransformValidator
                 }
                 // deep?
                 if (isset($info['depth'])) {
-                    self::validateRequiredFields($info, $passIn[$tableOrField]);
+                    self::validateRequiredFields($info, $passIn[$tableOrField], $subModel);
                 }
                 if (isset($info['on_creation'])) {
                     $passIn = self::applyCallback($info, 'on_creation', $tableOrField, $passIn);
@@ -185,10 +185,11 @@ class TransformValidator
     /**
      * @param $description
      * @param $passIn
+     * @param $subModel
      *
      * @throws Exception
      */
-    private static function validateRequiredFields($description, $passIn)
+    private static function validateRequiredFields($description, $passIn, $subModel)
     {
         if (isset($description['required_fields'])) {
             $depth = isset($description['depth']) ? $description['depth'] : false;
@@ -203,11 +204,18 @@ class TransformValidator
                         if (empty($passIn)) {
                             throw new Exception('Missing or malformed: ' . $field);
                         }
-                        foreach ($passIn as $oneInMany) {
-                            if (!isset($oneInMany[$field])) {
+                        if(!$subModel){
+                            foreach ($passIn as $oneInMany) {
+                                if (!isset($oneInMany[$field])) {
+                                    throw new Exception('Missing or malformed: ' . $field);
+                                }
+                            }
+                        } else {
+                            if (!isset($passIn[$field])) {
                                 throw new Exception('Missing or malformed: ' . $field);
                             }
                         }
+
                         break;
                 }
             }
