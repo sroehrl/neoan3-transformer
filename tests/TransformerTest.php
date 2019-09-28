@@ -205,19 +205,7 @@ class TransformerTest extends TestCase
         $this->validateModel($r);
     }
 
-    /**
-     * @depends testGet
-     *
-     * @param $givenId
-     *
-     * @throws Exception
-     */
-    public function testUpdateFailure($givenId)
-    {
-        // expect malformed
-        $this->expectException(Exception::class);
-        $this->transformerInstance::update(['userNames' => 'James'], $givenId);
-    }
+
 
     /**
      * @depends testGet
@@ -229,7 +217,6 @@ class TransformerTest extends TestCase
     public function testUpdateMagic($givenId)
     {
         $user = $this->transformerInstance::get($givenId);
-
         $this->validateModel($user);
         // according to mock-transformer this should never be done. BUT: we are testing
         $t = $this->transformerInstance::updateEmail(['email' => 'some@other.com'], $givenId);
@@ -266,6 +253,20 @@ class TransformerTest extends TestCase
         $this->validateModel($user);
         $user = $this->transformerInstance::delete($user);
         $this->assertTrue(empty($user));
+    }
+
+    /**
+     * @depends testGet
+     *
+     * @param $givenId
+     *
+     * @throws Exception
+     */
+    public function testUpdateFailure($givenId)
+    {
+        // expect malformed
+        $this->expectException(Exception::class);
+        $this->transformerInstance::update(['userNames' => 'James'], $givenId);
     }
 
     /**

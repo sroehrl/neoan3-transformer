@@ -267,7 +267,11 @@ class Transformer
     static function update($obj, $givenId = false, $subModel = false)
     {
         $id = self::identifyUsableId($obj, $givenId, $subModel);
-        $existingEntity = IndexModel::first(self::find(['id' => $id], false, $subModel));
+        $q = ['id' => $id];
+        if($subModel){
+            $q = [$subModel => $q];
+        }
+        $existingEntity = IndexModel::first(self::find($q, false, $subModel));
         if (empty($existingEntity)) {
             throw new Exception('Cannot find entity to update');
         }
@@ -295,27 +299,38 @@ class Transformer
         if ($void) {
             throw new Exception('Malformed magic handling?');
         }
-        $structure = self::$transformer::modelStructure();
+        $transformer = self::$transformer::modelStructure();
+        $structure = self::getStructure(self::$model);
+
         $table = self::$model;
         $qualifier = 'id';
         $condition = [];
         $results = [];
         if ($subModel) {
             $qualifier = self::$model . '_id';
-            $structure = $structure[$subModel];
-            $table = isset($structure['translate']) ? $structure['translate'] : $subModel;
-        }
-        foreach ($structure as $columnOrTable => $values) {
-            if (isset($obj[$columnOrTable])) {
-                $prefix = (substr(strtolower($columnOrTable), -2) == 'id' && self::$assumesUuid) ? '$' : '';
-                if (isset($values['translate'])) {
-                    $condition[$values['translate']] = $prefix . $obj[$columnOrTable];
-                } else {
-                    $condition[$columnOrTable] = $prefix . $obj[$columnOrTable];
+            $transformer = $transformer[$subModel];
+            $table = isset($transformer['translate']) ? $transformer['translate'] : $subModel;
+            $obj = $obj[$subModel];
+            foreach ($structure[$table] as $column =>$type){
+                if(isset($obj[$column])){
+                    $prefix = (substr(strtolower($column), -2) == 'id' && self::$assumesUuid) ? '$' : '';
+                    $condition[$column] = $prefix . $obj[$column];
                 }
+            }
+        } else {
+            foreach ($transformer as $columnOrTable => $values) {
+                if (isset($obj[$columnOrTable])) {
+                    $prefix = (substr(strtolower($columnOrTable), -2) == 'id' && self::$assumesUuid) ? '$' : '';
+                    if (isset($values['translate'])) {
+                        $condition[$values['translate']] = $prefix . $obj[$columnOrTable];
+                    } else {
+                        $condition[$columnOrTable] = $prefix . $obj[$columnOrTable];
+                    }
 
+                }
             }
         }
+
         $ids = Db::easy($table . '.' . $qualifier, $condition);
         foreach ($ids as $id) {
             $results[] = self::get($id[$qualifier]);
@@ -347,7 +362,11 @@ class Transformer
                 Db::ask($table, ['delete_date' => '.'], ['id' => $prefix . $values['id']]);
             }
         }
-        return IndexModel::first(self::find(['id' => $id], false, $subModel));
+        $q = ['id' => $id];
+        if($subModel){
+            $q = [$subModel => $q];
+        }
+        return IndexModel::first(self::find($q, false, $subModel));
     }
 
     /**
