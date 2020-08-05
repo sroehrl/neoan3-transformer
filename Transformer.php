@@ -333,7 +333,10 @@ class Transformer
 
         $ids = Db::easy($table . '.' . $qualifier, $condition);
         foreach ($ids as $id) {
-            $results[] = self::get($id[$qualifier]);
+            $get = self::get($id[$qualifier]);
+            if(!empty($get)){
+                $results[] = $get;
+            }
         }
         return $results;
     }
