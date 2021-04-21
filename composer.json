@@ -2,7 +2,7 @@
     "name": "neoan3-apps/transformer",
     "description": "Model abstraction utilizing neoan3's model transformers",
     "require": {
-        "neoan3-apps/db": "^0.2.1",
+        "neoan3-apps/db": "^0.3.*",
         "neoan3-model/index": "^1"
     },
     "license": "MIT",
